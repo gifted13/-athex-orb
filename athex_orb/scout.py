@@ -389,7 +389,7 @@ def fetch_yahoo(tickers: list[str], years: int) -> dict[str, pd.DataFrame]:
     out: dict[str, pd.DataFrame] = {}
     try:
         raw = yf.download(tickers, start=start, interval="1d", auto_adjust=False, actions=False,
-                          group_by="ticker", progress=False, threads=True)
+                          group_by="ticker", progress=False, threads=False)
     except Exception:
         raw = None
     if raw is not None and len(raw):
