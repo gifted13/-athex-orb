@@ -68,7 +68,7 @@ prove the model can find a real signal. `planted_signal = 0` ⇒ pure random wal
 
 ```python
 def prices_dir(cfg) -> Path                      # cfg.data_dir / "prices"
-def fetch_yahoo(tickers: list[str], years: int) -> dict[str, pd.DataFrame]   # yfinance, auto_adjust=True; skips failures
+def fetch_yahoo(tickers: list[str], years: int) -> dict[str, pd.DataFrame]   # yfinance auto_adjust=False + dividend_adjust; skips failures
 def update_cache(cfg, stocks: list[Stock], progress=None) -> dict            # downloads stocks + index, writes CSVs, returns {"ok": [...], "failed": [...]}
 def write_demo_data(cfg, stocks, seed=7) -> None # synthetic → CSV cache + marks mode demo
 def load_prices(cfg, tickers: list[str] | None = None) -> tuple[dict[str, pd.DataFrame], pd.DataFrame | None]
@@ -79,6 +79,14 @@ def clean_ohlcv(df) -> pd.DataFrame              # enforce schema, drop dups/NaN
 CSV format per ticker: `data/prices/<TICKER>.csv` with header `date,open,high,low,close,volume`.
 `source="csv"` reads user files from `data/csv/<TICKER>.csv` (same header) instead of Yahoo.
 `progress` is an optional callable `progress(fraction: float, message_el: str)`.
+
+Additions (fix round): `dividend_adjust(raw)` — OHLC × (Adj Close / Close), volume ÷ the same factor, so that
+`close × volume` is the as-of traded value (no look-ahead from later dividends in adv20/sizing/costs);
+`drop_partial_bar(df, now)` — drops today's in-progress Yahoo bar before 17:35 Athens; user CSVs accept `;`/tab,
+decimal comma, Greek headers and day-first dates (strict, whole-column parsing); a truncated download never wipes
+cached history (spliced with re-scaling); `_meta.json` is written atomically and a `prices/_DEMO` marker keeps
+`data_mode` fail-closed; `add_stock_data` trims a live series to the cache's `last_date`. `update_cache` also
+returns `problems` ({ticker: Greek message}), `spliced`, `index_last_date`.
 
 ## market.py  (agent: «Χαρτογράφος» — market context)
 
@@ -107,6 +115,7 @@ gap_1 (open_t / close_{t−1} − 1), range_pos_252 ((close−min252)/(max252−
 sector_rel_20, mkt_ret_20, mkt_vol_20, mkt_trend`.
 NaN handling: rows where any FEATURE_COLUMN is NaN are kept in the panel (UI needs them) but are
 excluded from training/prediction by the model layer. ATR = Wilder ATR(cfg.barriers.atr_days).
+Market features are forward-filled at most `MKT_FFILL_LIMIT = 5` sessions (a stale index ⇒ NaN, not frozen values).
 
 ## labels.py  (the three Orb states)
 
@@ -208,12 +217,17 @@ def metrics(equity: pd.Series, trades: pd.DataFrame | None, capital: float) -> d
     # profit_factor, avg_bars_held, total_costs_eur, exposure (fraction of days with ≥1 position)
 def buy_and_hold(index_df, start, end, capital) -> pd.Series
 def random_benchmark(prices, panel, preds, labels, cfg, runs) -> dict
-    # {"equity_median": Series, "equity_p05": Series, "equity_p95": Series, "final_returns": list[float]}
+    # {"equity_median": Series, "equity_p05": Series, "equity_p95": Series, "final_returns": list[float],
+    #  "run_metrics": {metric: [...]}, "metrics_median": {metric: median across runs}, ...}
+def skill(preds, labels) -> dict   # out-of-sample log-loss/Brier vs constant base rates, block bootstrap by date
 def calibration(preds, labels, bins=10) -> list[dict]      # [{"bin_lo","bin_hi","predicted","realized","n"}] for p_tp vs label==TP (resolved only)
-def verdict(strategy_metrics, random_final_returns, bh_metrics) -> dict
-    # {"edge": bool, "percentile": float (share of random runs strategy beats), "text_el": str, "level": "good"|"weak"|"none"}
+def verdict(strategy_metrics, random_final_returns, bh_metrics, *, bh_universe_metrics=None, skill_result=None) -> dict
+    # {"edge": bool, "percentile": float (share of random runs strategy beats), "p_value", "text_el": str,
+    #  "level": "good"|"weak"|"none", ...}
 ```
-`edge` is true only if strategy total return beats ≥ 95% of random runs **and** beats buy&hold.
+`edge` is true only if p = (1 + #{random ≥ strategy}) / (1 + runs) ≤ 0.05 with ≥ 100 random runs **and** the
+strategy beats buy&hold of the index **and** of an equal-weight portfolio of the same (adjusted) universe **and**
+the out-of-sample `skill` test passes **and** it is profitable with ≥ 30 trades. "weak" also requires skill.
 
 ## journal.py  (paper trading memory)
 
@@ -222,7 +236,9 @@ reason_el, p_tp, p_sl, p_to, ev_net, entry_ref (last close), tp_ret, sl_ret, siz
 status ('pending'|'open'|'tp'|'sl'|'timeout'|'void'), entry_date, entry_price, exit_date, exit_price,
 gross_ret, net_ret, created_at, UNIQUE(signal_date, ticker))`.
 ```python
-def record(cfg, signal_date, rows: list[dict]) -> int      # upsert today's decisions (both take & skip)
+def record(cfg, signal_date, rows: list[dict]) -> int      # upsert today's decisions (both take & skip);
+                                                           # frozen from 10:00 Athens of the next business day;
+                                                           # extra column `blocked` (skip by the Guard)
 def resolve(cfg, prices) -> int                            # fill outcomes using labels.simulate_exit once data is available
 def list_entries(cfg, limit=500) -> list[dict]
 def summary(cfg) -> dict                                   # counts, hit rates, avg net ret for 'take' vs 'skip', calibration on resolved
@@ -238,6 +254,11 @@ def run_refresh(cfg, progress=None, demo=False) -> dict
 def run_backtest_job(cfg, progress=None) -> dict   # executor + benchmarks → state/backtest.json
 def load_state(cfg, name) -> dict | None   # reads state/<name>.json
 ```
+The official index is used only if it lags the stocks by ≤ 2 sessions (`usable_index`); otherwise an equal-weight
+index is used, `index_ok = False` and `meta.index_note_el` explains why. Only `run_refresh` writes journal
+decisions; the fast `recompute_signals` (settings change, add/remove stock) never does. A demo refresh clears the
+demo-mode journal.
+
 State files (JSON, UTF‑8, `ensure_ascii=False`, NaN → null):
 * `state/universe.json` — the `/api/universe` payload minus `favorite` flags.
 * `state/stocks/<TICKER>.json` — the `/api/stock/{ticker}` payload minus `favorite`.
@@ -268,7 +289,8 @@ Number conventions: fractions for percentages (0.0123 = 1.23%), EUR as floats, d
    "decision": "take"|"skip"|"blocked"|"none", "favorite": bool}`
 * `GET /api/search?q=` → `{"items": [Item], "suggest": {"ticker": "XYZ.AT", "valid": bool} | null}`
   (`suggest` present when q looks like a ticker not in the universe → UI offers "Προσθήκη").
-* `POST /api/universe` body `{"ticker": "...", "name"?: "...", "sector"?: "..."}` → `{"ok", "item"?, "error_el"?}`.
+* `POST /api/universe` body `{"ticker": "...", "name"?: "...", "sector"?: "..."}` → `{"ok", "item"?, "error_el"?}`
+  (409 while a refresh/demo job runs; the index ticker is refused).
   Normalizes ticker, adds to custom universe, fetches its data (or synthesizes in demo mode), recomputes that
   stock's state with the current model (fast path; full retrain happens on next refresh).
 * `DELETE /api/universe/{ticker}` → custom only.
@@ -277,7 +299,7 @@ Number conventions: fractions for percentages (0.0123 = 1.23%), EUR as floats, d
 * `GET /api/stock/{ticker}?days=250` →
   `{"ticker","name","sector","custom","favorite","has_data","as_of",
     "candles": [{"d","o","h","l","c","v"}], "orb_history": [{"d","p_tp","p_sl","p_to"}],
-    "orb": {"p_tp","p_sl","p_to","ev_net","dominant"} | null,
+    "orb": {"p_tp","p_sl","p_to","ev_net","dominant","breakeven_p_tp"} | null,
     "plan": {"entry_ref","tp_price","sl_price","horizon_days","size_eur","shares"} | null,
     "decision": "take"|"skip"|"blocked"|"none", "decision_reason_el",
     "agents": [Agent x6], "outcomes": [{"signal_date","label","gross_ret"}] (last 20 resolved, for this stock)}`
@@ -290,8 +312,8 @@ Number conventions: fractions for percentages (0.0123 = 1.23%), EUR as floats, d
 * `GET /api/signals` → `{"as_of","items":[{"ticker","name","sector","decision","reason_el","p_tp","p_sl","p_to","ev_net",
    "entry_ref","tp_price","sl_price","size_eur"}]}` (take first, then by ev_net desc).
 * `GET /api/backtest` → `{"available": bool, "generated_at", "period": {"start","end"},
-   "params": {...}, "metrics": {"strategy": M, "buy_hold": M, "random_median": M},
-   "equity": [{"d","strategy","buy_hold","random_median","random_p05","random_p95"}],
+   "params": {...}, "metrics": {"strategy": M, "buy_hold": M, "buy_hold_universe": M, "random_median": M},
+   "skill": {...}, "equity": [{"d","strategy","buy_hold","buy_hold_universe","random_median","random_p05","random_p95"}],
    "drawdown": [{"d","strategy"}], "trades": [... last 300 ...], "calibration": [...],
    "by_label": {"tp": n, "sl": n, "to": n}, "verdict": {...}}`
 * `GET /api/journal` → `{"items": [...], "summary": {...}}`

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="el" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ATHEX Orb</title>
+  <meta name="description" content="ATHEX Orb — ερευνητικό εργαλείο πιθανοτήτων για μετοχές του Χρηματιστηρίου Αθηνών (backtest και εικονικές συναλλαγές).">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#070b15">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Προαιρετικές γραμματοσειρές· χωρίς σύνδεση χρησιμοποιούνται οι γραμματοσειρές του συστήματος -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" media="print" onload="this.media='all'">
+  <link rel="stylesheet" href="css/app.css">
+  <script>
+    // Εφαρμογή θέματος πριν τη σχεδίαση για να μην αναβοσβήνει η σελίδα.
+    (function () {
+      var t = null;
+      try { t = JSON.parse(localStorage.getItem('orb.theme')); } catch (e) {}
+      if (t !== 'light' && t !== 'dark') {
+        t = window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      }
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar" role="banner">
+      <!-- μέσα στη γραμμή κορυφής: όταν είναι ανοιχτό το συρτάρι μετοχών, γίνεται κι αυτό inert -->
+      <a class="skip-link" href="#main">Μετάβαση στο περιεχόμενο</a>
+      <a class="brand" href="#/" aria-label="ATHEX Orb — αρχική">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+          <defs>
+            <radialGradient id="bm-core" cx="50%" cy="42%" r="60%">
+              <stop offset="0" stop-color="#1c2a48"/><stop offset=".75" stop-color="#0a1020"/><stop offset="1" stop-color="#050810"/>
+            </radialGradient>
+            <radialGradient id="bm-glow" cx="50%" cy="100%" r="70%">
+              <stop offset="0" stop-color="#38bdf8" stop-opacity=".9"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle cx="16" cy="16" r="10.5" fill="url(#bm-core)"/>
+          <circle cx="16" cy="16" r="10.5" fill="url(#bm-glow)"/>
+          <circle cx="16" cy="16" r="14" fill="none" stroke="rgba(148,163,184,.25)" stroke-width="2.4"/>
+          <circle cx="16" cy="16" r="14" fill="none" stroke="#10b981" stroke-width="2.4" stroke-linecap="round" pathLength="100" stroke-dasharray="36 64" transform="rotate(-90 16 16)"/>
+          <circle cx="16" cy="16" r="14" fill="none" stroke="#f43f5e" stroke-width="2.4" stroke-linecap="round" pathLength="100" stroke-dasharray="28 72" stroke-dashoffset="-42" transform="rotate(-90 16 16)"/>
+          <circle cx="16" cy="16" r="14" fill="none" stroke="#8392a8" stroke-width="2.4" stroke-linecap="round" pathLength="100" stroke-dasharray="18 82" stroke-dashoffset="-76" transform="rotate(-90 16 16)"/>
+          <ellipse cx="12.5" cy="11.5" rx="4" ry="2.4" fill="#fff" opacity=".22" transform="rotate(-25 12.5 11.5)"/>
+        </svg>
+        <span><b>ATHEX</b> Orb</span>
+      </a>
+      <span class="chip chip-warn chip-sm demo-badge" id="demo-badge" hidden>ΕΠΙΔΕΙΞΗ</span>
+      <nav class="topnav" aria-label="Κύρια πλοήγηση" id="topnav"></nav>
+      <div class="topbar-spacer"></div>
+      <button class="icon-btn only-drawer" id="open-sidebar" type="button" aria-label="Αναζήτηση μετοχής" aria-controls="sidebar" aria-expanded="false"></button>
+      <div class="status-pill" id="status-pill" role="status" aria-live="polite"><span class="dot"></span><span class="pill-text">Σύνδεση…</span></div>
+      <button class="btn job-btn" id="job-btn" type="button"></button>
+      <button class="icon-btn" id="theme-btn" type="button"></button>
+      <div class="job-strip" id="job-strip" hidden aria-hidden="true"><div class="js-bar"><i></i></div><div class="js-msg"></div></div>
+    </header>
+
+    <div class="shell">
+      <aside class="sidebar" id="sidebar" aria-label="Μετοχές"></aside>
+      <div class="scrim" id="scrim" aria-hidden="true"></div>
+      <main id="main" tabindex="-1">
+        <div id="view"></div>
+      </main>
+    </div>
+
+    <nav class="tabbar" id="tabbar" aria-label="Κύρια πλοήγηση (κινητό)"></nav>
+  </div>
+  <div class="toasts" id="toasts" role="status" aria-live="polite" aria-atomic="false"></div>
+  <noscript><p style="padding:24px">Το ATHEX Orb χρειάζεται JavaScript για να λειτουργήσει.</p></noscript>
+</body>
+</html>

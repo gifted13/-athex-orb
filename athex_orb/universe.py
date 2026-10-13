@@ -136,6 +136,8 @@ def remove_custom(data_dir: Path, ticker: str) -> bool:
 def search(stocks: list[Stock], query: str, limit: int = 20) -> list[Stock]:
     """Αναζήτηση χωρίς τόνους σε σύμβολο, όνομα, κλάδο και ψευδώνυμα. Πρώτα τα καλύτερα ταιριάσματα."""
     q = fold(query)
+    if len(q) > 3 and q.endswith(".at"):   # πλήρες σύμβολο Yahoo, π.χ. «OPAP.AT»
+        q = q[:-3]
     if not q:
         return stocks[:limit]
     scored = []

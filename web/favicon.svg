@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <radialGradient id="c" cx="50%" cy="42%" r="60%">
+      <stop offset="0" stop-color="#1c2a48"/><stop offset=".75" stop-color="#0a1020"/><stop offset="1" stop-color="#050810"/>
+    </radialGradient>
+    <radialGradient id="g" cx="50%" cy="100%" r="70%">
+      <stop offset="0" stop-color="#38bdf8" stop-opacity=".9"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="16" cy="16" r="15.5" fill="#070b15"/>
+  <circle cx="16" cy="16" r="9.5" fill="url(#c)"/>
+  <circle cx="16" cy="16" r="9.5" fill="url(#g)"/>
+  <circle cx="16" cy="16" r="13" fill="none" stroke="#10b981" stroke-width="3" stroke-linecap="round" pathLength="100" stroke-dasharray="36 64" transform="rotate(-90 16 16)"/>
+  <circle cx="16" cy="16" r="13" fill="none" stroke="#f43f5e" stroke-width="3" stroke-linecap="round" pathLength="100" stroke-dasharray="28 72" stroke-dashoffset="-42" transform="rotate(-90 16 16)"/>
+  <circle cx="16" cy="16" r="13" fill="none" stroke="#8392a8" stroke-width="3" stroke-linecap="round" pathLength="100" stroke-dasharray="18 82" stroke-dashoffset="-76" transform="rotate(-90 16 16)"/>
+  <ellipse cx="12.8" cy="12" rx="3.6" ry="2.1" fill="#fff" opacity=".25" transform="rotate(-25 12.8 12)"/>
+</svg>
