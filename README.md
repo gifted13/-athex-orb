@@ -29,6 +29,9 @@
 Χρειάζεστε Python 3.11 ή νεότερη.
 
 ```bash
+git clone https://github.com/gifted13/-athex-orb.git athex-orb
+cd athex-orb
+
 python -m venv .venv
 source .venv/bin/activate            # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
